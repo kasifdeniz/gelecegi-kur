@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>🌍 Geleceği Kur</title>
+
+<style>
+body {
+  margin: 0;
+  background: #111;
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
+
+.container {
+  max-width: 760px;
+  margin: auto;
+  padding: 25px;
+  text-align: center;
+}
+
+.box {
+  background: #1e1e1e;
+  padding: 25px;
+  border-radius: 15px;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  margin: 6px 0;
+  font-size: 17px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+button:hover { opacity: 0.85; }
+
+.bar-container {
+  background: #333;
+  height: 18px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 15px 0;
+}
+
+.bar {
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(to right, #2ecc71, #f1c40f, #e74c3c);
+  transition: width 0.4s;
+}
+
+.visuals img { margin: 6px; }
+
+.alarm {
+  color: #ff4c4c;
+  font-size: 20px;
+  font-weight: bold;
+  animation: blink 1s infinite;
+  margin-top: 10px;
+}
+
+@keyframes blink {
+  0% {opacity: 1;}
+  50% {opacity: 0.2;}
+  100% {opacity: 1;}
+}
+
+.event-panel {
+  background: #7a1a1a;
+  padding: 18px;
+  border-radius: 12px;
+  margin-top: 15px;
+}
+
+.event-panel button {
+  background: #2ecc71;
+  font-size: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<div class="box">
+
+<h1>🌍 GELECEĞİ KUR</h1>
+<p id="status"></p>
+
+<div class="bar-container">
+  <div id="carbonBar" class="bar"></div>
+</div>
+
+<h2 id="question"></h2>
+<div id="options"></div>
+<p id="info"></p>
+
+<div id="alarm" class="alarm"></div>
+
+<div id="eventPanel" class="event-panel" style="display:none;">
+  <p id="eventText"></p>
+  <p>⏳ Kalan süre: <span id="timer">2</span> sn</p>
+  <button onclick="stopEvent()">🛑 Müdahale Et</button>
+</div>
+
+<div class="visuals">
+  <img id="worldImg" src="world_mid.png" width="180"><br>
+  <img src="cloud.png" width="80">
+  <img src="tree.png" width="80">
+</div>
+
+</div>
+</div>
+
+<script>
+let carbon = 50;
+let turn = 1;
+const maxTurn = 10;
+
+/* ---------- 20 KARAR ---------- */
+const allDecisions = [
+
+/* 5 ADET 4 ŞIK */
+{q:"🚗 Ulaşım tercihin?",o:[
+["🚗 Araba",10,"Yüksek karbon."],
+["🚌 Otobüs",4,"Daha az salım."],
+["🚲 Bisiklet",-6,"Sıfır emisyon."],
+["🚶 Yürüyüş",-4,"Doğa dostu."]
+]},
+
+{q:"⚡ Enerji kaynağı?",o:[
+["⚡ Kömür",8,"Kirli enerji."],
+["🔥 Doğalgaz",4,"Orta seviye."],
+["🌞 Güneş",-6,"Temiz enerji."],
+["🌬️ Rüzgar",-5,"Sürdürülebilir."]
+]},
+
+{q:"🍽️ Beslenme?",o:[
+["🥩 Kırmızı et",9,"Yüksek karbon."],
+["🍗 Beyaz et",5,"Orta etki."],
+["🥦 Vejetaryen",-4,"Düşük karbon."],
+["🌱 Vegan",-6,"Çok çevreci."]
+]},
+
+{q:"✈️ Tatil planı?",o:[
+["✈️ Uçak",10,"Çok yüksek salım."],
+["🚗 Araba",6,"Yüksek salım."],
+["🚆 Tren",-3,"Daha iyi."],
+["🏕️ Yakın tatil",-5,"Düşük etki."]
+]},
+
+{q:"🏠 Ev yalıtımı?",o:[
+["❌ Yok",7,"Enerji kaybı."],
+["🧱 Kısmi",3,"Biraz tasarruf."],
+["🏡 Tam",-5,"Verimli."],
+["🌍 Pasif ev",-7,"Çok verimli."]
+]},
+
+/* 15 ADET 3 ŞIK */
+{q:"💡 Işık kullanımı?",o:[["💡 Açık",4,"İsraf."],["🔌 Kapalı",-3,"Tasarruf."],["💡 LED",-4,"Verimli."]]},
+{q:"🚿 Duş süresi?",o:[["🚿 Uzun",5,"Enerji harcar."],["⏱️ Orta",2,"Kabul edilebilir."],["⏱️ Kısa",-4,"Tasarruf."]]},
+{q:"🛒 Alışveriş?",o:[["🛍️ Gereksiz",6,"Tüketim."],["📦 Planlı",-2,"Daha iyi."],["♻️ Az",-4,"Çevreci."]]},
+{q:"🚮 Çöp?",o:[["❌ Ayırmam",5,"Atık artar."],["♻️ Kısmen",-2,"Bir miktar."],["♻️ Tam",-4,"Geri dönüşüm."]]},
+{q:"🔥 Isınma?",o:[["🔥 Yüksek",6,"Fosil yakıt."],["🔥 Orta",2,"Normal."],["🧥 Düşük",-4,"Tasarruf."]]},
+{q:"🚗 Araç türü?",o:[["⛽ Benzin",6,"Kirli."],["🔋 Hibrit",-2,"Daha iyi."],["🔌 Elektrik",-5,"Temiz."]]},
+{q:"📦 Kargo?",o:[["🚚 Hızlı",4,"Salım artar."],["🚚 Standart",1,"Normal."],["📦 Toplu",-3,"Tasarruf."]]},
+{q:"🌾 Tarım?",o:[["🧪 Kimyasal",6,"Toprak zarar."],["🌾 Kontrollü",2,"Orta."],["🌿 Organik",-4,"Sürdürülebilir."]]},
+{q:"🌊 Deniz?",o:[["🛥️ Motor",5,"Kirlilik."],["⛵ Yelken",-2,"Daha iyi."],["🚣 Kürek",-4,"Temiz."]]},
+{q:"📱 Telefon?",o:[["📱 Sık değiştir",4,"Atık."],["📱 Uzun kullan",-3,"Tasarruf."],["♻️ İkinci el",-4,"Çevreci."]]},
+{q:"🧴 Plastik?",o:[["🧴 Çok",5,"Atık."],["🧴 Az",1,"Orta."],["👜 Bez",-4,"Doğa dostu."]]},
+{q:"🌳 Orman?",o:[["🪓 Kes",8,"Karbon artar."],["⚖️ Dengeli",2,"Kontrollü."],["🌲 Koru",-6,"Çok iyi."]]},
+{q:"🏭 Sanayi?",o:[["🏭 Klasik",6,"Kirli."],["⚙️ Filtreli",1,"Orta."],["🌱 Yeşil",-5,"Temiz."]]},
+{q:"🌍 Politika?",o:[["💰 Kâr",6,"Çevre ihmal."],["⚖️ Dengeli",1,"Orta."],["🌍 Sürdürülebilir",-5,"Uzun vadeli."]]},
+{q:"🚶 Günlük yaşam?",o:[["🚗 Hızlı",4,"Salım."],["🚶 Dengeli",0,"Nötr."],["🚲 Aktif",-4,"Sağlıklı."]]}
+];
+
+const gameDecisions = [...allDecisions].sort(() => Math.random()-0.5).slice(0,10);
+
+/* ---------- İKLİM OLAYI ---------- */
+const events = [
+  {text:"🌊 Sel felaketi başladı!", effect:8},
+  {text:"🔥 Büyük orman yangını!", effect:10},
+  {text:"🏭 Sanayi kazası!", effect:6}
+];
+
+let eventActive=false, countdown, currentEvent;
+
+function updateBar(){
+  carbon=Math.max(0,Math.min(100,carbon));
+  carbonBar.style.width=carbon+"%";
+}
+
+function updateWorldImage(){
+  worldImg.src = carbon<40?"world_good.png":carbon<70?"world_mid.png":"world_bad.png";
+}
+
+function triggerClimateEvent(){
+  if(Math.random()<0.15 && !eventActive){
+    eventActive=true;
+    currentEvent=events[Math.floor(Math.random()*events.length)];
+    alarm.innerText="🚨 ACİL İKLİM KRİZİ!";
+    setTimeout(showEventPanel,1000);
+  }
+}
+
+function showEventPanel(){
+  let t=2;
+  eventPanel.style.display="block";
+  eventText.innerText=currentEvent.text;
+  timer.innerText=t;
+  countdown=setInterval(()=>{
+    t--;
+    timer.innerText=t;
+    if(t<=0) failEvent();
+  },1000);
+}
+
+function stopEvent(){
+  clearInterval(countdown);
+  if(Math.random()<0.68){
+    info.innerText="✅ Müdahale başarılı!";
+  }else{
+    carbon+=currentEvent.effect;
+    info.innerText="❌ Başarısız! "+currentEvent.text;
+  }
+  eventActive=false;
+  eventPanel.style.display="none";
+  alarm.innerText="";
+  updateBar(); updateWorldImage();
+}
+
+function failEvent(){
+  clearInterval(countdown);
+  carbon+=currentEvent.effect;
+  eventActive=false;
+  eventPanel.style.display="none";
+  alarm.innerText="";
+  info.innerText="❌ Müdahale edilemedi! "+currentEvent.text;
+  updateBar(); updateWorldImage();
+}
+
+function loadTurn(){
+  if(turn>maxTurn){
+    question.innerText="🏁 OYUN BİTTİ";
+    options.innerHTML="";
+    status.innerText="Final Karbon: "+carbon;
+    return;
+  }
+
+  const d=gameDecisions[turn-1];
+  status.innerText=`Tur ${turn}/10 | Karbon: ${carbon}`;
+  question.innerText=d.q;
+  info.innerText="";
+  options.innerHTML="";
+
+  d.o.forEach(opt=>{
+    const b=document.createElement("button");
+    b.innerText=opt[0];
+    b.onclick=()=>{
+      carbon+=opt[1];
+      info.innerText=opt[2];
+      updateBar(); updateWorldImage();
+      triggerClimateEvent();
+      turn++;
+      setTimeout(loadTurn,800);
+    };
+    options.appendChild(b);
+  });
+}
+
+updateBar(); updateWorldImage(); loadTurn();
+</script>
+
+</body>
+</html>
